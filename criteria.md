@@ -23,8 +23,7 @@ For at least 4 of my 5 test questions, the retrieved chunks include one that
 contains the answer.
 
 **Why this target:**
-<!-- e.g. "One of my questions is about a topic only two documents mention, so
-     I expect that one to be hard." -->
+I chose 4 of 5 because most questions target specific facts in dedicated campus documents, but one question may be harder if the relevant wording is split across chunks.
 
 ---
 
@@ -33,8 +32,7 @@ contains the answer.
 Every answer the system produces names at least one source document.
 
 **Why this target:**
-<!-- Why all five and not four? What about your setup makes that achievable —
-     or what would have to go wrong for it not to be? -->
+I chose all five because the answer prompt has access to the retrieved chunks and each answer should be traceable to one of the corpus documents. If an answer has no source, it cannot be checked for support.
 
 ---
 
@@ -50,8 +48,7 @@ in at least 4 of 5 tries.
      just keep five of them, or the "4 of 5" above has nothing to be 4 of. -->
 
 **Why this target:**
-<!-- What did your distances look like when you set the cutoff in Milestone 4?
-     Was there a clean gap, or did the two groups overlap? -->
+I chose 4 of 5 because unrelated questions should usually be clearly separated from campus questions by the relevance threshold, while one borderline question could still pass if it shares general vocabulary with the corpus.
 
 ---
 
@@ -69,11 +66,11 @@ in at least 4 of 5 tries.
        - "No chunk is shorter than 200 characters, since anything below that
           in my corpus turned out to be a heading with no content under it." -->
 
-
+At least 4 of 5 sampled chunks should contain a complete thought, with no sentence cut in half at either the beginning or the end.
 
 **Why this target:**
 
-
+I chose 4 of 5 because complete thoughts make answers easier to retrieve and cite, while one imperfect boundary is reasonable for documents with irregular headings or paragraph lengths.
 
 ---
 
@@ -87,11 +84,11 @@ in at least 4 of 5 tries.
      present — anything, as long as it names a number or an observable
      outcome. -->
 
-
+At least 4 of 5 answers should cite the specific document that contains the supporting fact, rather than merely naming the corpus or an unrelated document.
 
 **Why this target:**
 
-
+I chose 4 of 5 because source correctness matters more than simply displaying a citation, but one answer could be difficult to attribute if multiple documents repeat similar advice.
 
 ---
 
