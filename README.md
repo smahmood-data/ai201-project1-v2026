@@ -21,11 +21,11 @@
 
 ## What This Does
 
-<!-- Three or four sentences. Which corpus you picked, and the kinds of
-     questions your system answers. Write it for someone who has never seen
-     this repo.
-
-     Milestone 5. -->
+This system answers questions about campus life using the `campus_life` corpus.
+It retrieves relevant chunks from documents about deadlines, courses, housing,
+jobs, dining, library services, and transportation. It then answers only when
+the best retrieved chunk is close enough, names the source file, and refuses
+questions that the corpus does not cover.
 
 ## Chunking Strategy
 
@@ -142,22 +142,39 @@ the retrieved excerpts and requires the answer to name the specific source file.
 
 | Question | In corpus? | Best distance |
 |---|---|---|
-|  |  |  |
+| When is the deadline to drop classes? | Yes | 0.2973 |
+| What are the library hours? | Yes | 0.3848 |
+| Where is the best place to study at 9pm? | Yes | 0.6016 |
+| How often does the campus shuttle run? | Yes | 0.4132 |
+| How many hours can I work in the library or dining? | Yes | 0.2292 |
+| What is the capital of Mongolia? | No | 0.8246 |
+| How do I change the oil in a diesel engine? | No | 0.9340 |
+| Who won the 1994 World Cup? | No | 0.8859 |
+| What is the recommended dosage of ibuprofen for a headache? | No | 0.8442 |
+| How do I write a for loop in Rust? | No | 0.8960 |
+
+The in-corpus distances ranged from 0.2292 to 0.6016. The out-of-corpus
+distances ranged from 0.8246 to 0.9340, leaving a gap between 0.6016 and
+0.8246. I set the cutoff to 0.70, which lets all five in-corpus questions
+through and refuses all five out-of-corpus questions in this test.
 
 ## How I Used AI
 
-<!-- Two specific moments. For each: what you asked for, what came back, and
-     what you changed about it.
+**1.** I wrote notes about the assignment requirements, my `campus_life`
+documents, and what I wanted the chunks to do. I asked AI to check the project
+and help implement the chunker. It suggested a paragraph-based strategy, but I
+made the important choices: a 500-character limit, zero overlap, and keeping
+related short paragraphs together. I ran the chunk preview and checked the
+output myself, then made sure the README listed the real source files and
+chunks.
 
-     "I asked Claude to write the chunking function from my notes. It ignored
-     the overlap, so I added that myself" is the level of detail we're after.
-     "I used AI to help me code" is not.
-
-     Milestone 5. -->
-
-**1.**
-
-**2.**
+**2.** I ran retrieval tests for the five questions I wrote and five questions
+outside the corpus. AI helped collect and compare the distances, but I decided
+the cutoff from the results: the in-corpus scores ended at 0.6016 and the
+out-of-corpus scores started at 0.8246, so I chose 0.70. I also checked the
+assembled grounding prompt and tightened it so answers must use direct support
+from the excerpts and name the specific source file. The model answer call had
+a network error, so I did not treat that as a successful answer test.
 
 <!-- ── Stretch features ─────────────────────────────────────────────────────
      Doing one? Say so here BEFORE you start. A feature this README never
