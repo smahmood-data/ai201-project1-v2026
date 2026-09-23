@@ -277,8 +277,9 @@ GROUNDING_INSTRUCTION = """You answer questions using only the documents provide
 
 Rules:
 - Use only the information in the documents below. Do not use anything you know from elsewhere.
-- If the documents don't cover the question, say you don't have enough information. Do not guess.
-- Name the document your answer came from, using the filename given in each excerpt.
+- Every factual claim must be directly supported by one of the provided excerpts.
+- If the excerpts don't directly cover the question, say you don't have enough information. Do not guess or fill gaps from general knowledge.
+- Name the specific document that supports each factual answer, using the filename given in the excerpt.
 - Be brief. Two or three sentences is usually enough."""
 
 

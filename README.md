@@ -117,9 +117,14 @@ Laundry costs $1.50 wash, $1.25 dry, coin or card. On noise: loud until about 1a
 <!-- One complete question and answer, pasted as text, with the source line
      visible. Milestone 4. -->
 
-**Question:**
+**Question:** When is the deadline to drop classes?
 
-**Answer:**
+**Answer:** You can drop a class through the end of week six. If you drop after week two, it shows as a W on your transcript.
+
+**Source:** `admin_add_drop_deadline.txt`
+
+The grounding prompt requires every factual claim to be supported directly by
+the retrieved excerpts and requires the answer to name the specific source file.
 
 ```
 ```
