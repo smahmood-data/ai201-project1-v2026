@@ -176,6 +176,26 @@ assembled grounding prompt and tightened it so answers must use direct support
 from the excerpts and name the specific source file. The model answer call had
 a network error, so I did not treat that as a successful answer test.
 
+**3.** In unit 2 I used AI to build and run the evaluation. I decided my
+`expects` needed to be short facts instead of copied sentences, and I chose
+the simplest possible scorer — a case-insensitive phrase match — over the
+more complex options AI suggested (fact lists, "must not contain" checks,
+an LLM judge), because I wanted a check that gives the same verdict every
+time. AI wrote `scorer.py` from that spec. I ran the first eval myself; AI ran
+the retest and the after eval and drafted the run-log tables, which I
+checked against the results files.
+
+**4.** I used AI to help spot patterns in the results. It pointed out that
+every criterion was met, and that the near-miss on library hours was the
+scorer rejecting "2 am", not a wrong answer. It also traced the over-citation
+to seven housing posts that repeat the same library sentence. I made the
+judgement calls: I asked whether my criteria were too easy or too similar.
+I decided criterion 2 was the one to revise, because it overlapped with
+criterion 5 and didn't measure correctness. I rejected a suggested revision
+to criterion 5. And I picked hybrid search as my improvement over the
+grounding-prompt change AI recommended. That choice didn't pay off, and the
+honest write-up of why is in "Did it help?".
+
 <!-- ── Stretch features ─────────────────────────────────────────────────────
      Doing one? Say so here BEFORE you start. A feature this README never
      claims earns nothing.
@@ -510,9 +530,57 @@ scorer more than at retrieval, and this result confirms it.
 
      Milestone 5. -->
 
+No criterion is missed after the fix: all five, including the revised
+criterion 2, are 5/5 in every after run. That doesn't mean nothing is broken.
+These are the problems the run logs show that my criteria don't catch, and
+what I'd do about each:
+
+- **The scorer can't tell a wrong answer from a differently formatted one.**
+  "2 am" failed against `2am` twice on the retest. Fix: have
+  `scorer.py::judge` normalise times and number words ("2 a.m.", "2:00am",
+  "six" → "6") before matching. I stopped because the unit allows one
+  improvement, and changing the scorer changes the measurement, not the
+  system. Doing it alongside hybrid search would have made the before and
+  after impossible to compare.
+- **Hybrid search made "study at 9pm" worse.** BM25 matched on common words
+  and pulled in unrelated posts, and two of three answers dropped the library
+  hours. Fix: turn hybrid search back off (`AI201_HYBRID=0`) for this corpus,
+  or only add BM25 when the question has a rare term. I left it on so the
+  after log matches the code that produced it.
+- **Answers cite documents that don't support the whole claim.** The housing
+  posts repeat "library is open until 2am" and get credited for "10pm" too.
+  This was cleaner in the after runs, but I can't credit that to the change.
+  Fix: tighten the grounding prompt in `generate.py` so each citation sits
+  next to the specific sentence it supports. I didn't, because that would
+  have been a second change in a one-change unit.
+- **Answers drop the second half of two-part facts.** No drop-deadline answer
+  across nine runs mentions that a drop after week two shows as a W. Fix: make
+  `expects` able to hold more than one fact, so this counts as a failure,
+  then fix it in the prompt. Not done for the same reason.
+- **The gate has never been tested near its cutoff.** The closest
+  out-of-scope question scored 0.825 against 0.7. Fix: the near-miss
+  questions proposed in Diagnoses. Not done because changing the test
+  questions in the same unit as the fix would have muddied the before and
+  after.
+
 ## What I'd Do Differently
 
 <!-- Knowing what you know now — which of your five criteria would you write
      differently, and why?
 
      Milestone 5. -->
+
+- **Criterion 2:** I'd write it about correctness from the start, as I did
+  when I revised it: "the answer contains the expected fact". "Names a
+  source" passed 15/15 without ever telling me whether an answer was right,
+  and criterion 5 already covered citations.
+- **Criterion 3:** same target, harder questions. Five questions from a
+  different world (Mongolia, Rust) measure nothing. Near-misses that use
+  campus vocabulary would actually test where 0.7 sits.
+- **Criterion 5:** "every cited document supports what it's cited for",
+  not "the right document is among those cited". The loose wording let
+  over-citation pass in every run.
+- **My `expects`:** not a criterion, but it decides two of them. One short
+  phrase per question was too little. `library` passed answers that left out
+  the hours, and `week six` passed answers that left out the W. I'd write two
+  or three facts per question and let the scorer require all of them.
