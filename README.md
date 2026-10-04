@@ -386,27 +386,112 @@ through. I'd rather find that out than keep a target I can't miss.
 
 ## The Improvement
 
-**What I changed:**
+**What I changed:** hybrid search. `store.py::search` now ranks every chunk
+twice, by cosine distance (meaning) and by BM25 keyword score (`rank_bm25`), and
+combines the two rankings with reciprocal rank fusion (each chunk scores
+1/(60 + rank) from each list) in `store.py::_hybrid_search`. Each returned
+chunk keeps its real cosine distance, so the relevance gate still compares the
+same number against the same 0.7 cutoff. It's switched by `config.HYBRID`
+(`AI201_HYBRID=0` turns it off), so the before and after differ only in
+retrieval.
 
-**Why I picked it:**
+**Why I picked it:** my diagnosis found two retrieval weak spots: the
+library-hours question pulls in `housing_*_noise.txt` posts that repeat one
+sentence about the library, and the "study at 9pm" question only weakly
+matches `study_library_hours.txt` (0.6016). I expected keyword matching on
+"hours", "library" and "study" to push the dedicated documents up and the
+repeated housing sentence down. That link is honest but thin. None of my
+questions contain the rare names or numbers BM25 is best at, and I knew that
+going in.
 
 <!-- Connect it to a specific diagnosis above in one sentence. If you can't,
      you picked a fix because it sounded impressive. -->
 
 ### Run Log — After
 
-<!-- Same format, same five criteria, three runs each.
-     `python run_eval.py --label after` -->
+Source: `results/run_2026-10-03_2352_after.md`, produced by `run_eval.py::main`
+with `store.py::_hybrid_search`. Criterion 1 was checked against the retrieved
+chunk text, not just file names.
 
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---|---|---|---|---|
-| 1. Retrieved chunk contains the answer | 4 of 5 |  |  |  |  |
-| 2. Every answer names a source | 5 of 5 |  |  |  |  |
-| 3. Gate stops out-of-corpus questions | 4 of 5 |  |  |  |  |
-| 4. | | | | | |
-| 5. | | | | | |
+| 1. Retrieved chunk contains the answer | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 2. Every answer names a source | 5 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 2 (revised). Answer contains the expected fact | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 3. Gate stops out-of-corpus questions | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 4. Sampled chunks are complete thoughts | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 5. Answer cites the document holding the fact | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+
+**Before and after, side by side** (Run 1 / Run 2 / Run 3):
+
+| Criterion | Before | Retest (before, no change) | After (hybrid) |
+|---|---|---|---|
+| 1. Retrieved chunk contains the answer | 5 / 5 / 5 | 5 / 5 / 5 | 5 / 5 / 5 |
+| 2. Every answer names a source | 5 / 5 / 5 | 5 / 5 / 5 | 5 / 5 / 5 |
+| 2 (revised). Answer contains the expected fact | 5 / 5 / 5 | 5 / 4 / 4 | 5 / 5 / 5 |
+| 3. Gate stops out-of-corpus questions | 5 / 5 / 5 | 5 / 5 / 5 | 5 / 5 / 5 |
+| 4. Sampled chunks are complete thoughts | 5 / 5 / 5 | 5 / 5 / 5 | 5 / 5 / 5 |
+| 5. Answer cites the document holding the fact | 5 / 5 / 5 | 5 / 5 / 5 | 5 / 5 / 5 |
+
+Retrieval for the same questions, meaning-only versus hybrid (top 5, best first):
+
+| Question | Meaning only | Hybrid |
+|---|---|---|
+| Library hours | **study_library_hours** (#1), housing_morrow_house_noise, admin_library_holds, study_group_rooms, housing_calder_annexe_noise | housing_morrow_house_noise, admin_library_holds, money_jobs, housing_aldridge_hall_noise, **study_library_hours** (#5) |
+| Study at 9pm | study_library_hours, study_group_rooms, transit_walking, money_jobs, dining_north_kitchen_followup | study_library_hours, money_jobs, dining_the_ridgeway_cafe, money_textbooks, orientation_what_matters |
+| Drop deadline | add_drop_deadline, withdrawal_deadline, pass_fail_option, grade_appeals, course_stat_150 | add_drop_deadline, withdrawal_deadline, dining_halden_hall_followup, course_stat_150, course_cs_340 |
+
+**"Study at 9pm", run 1, after:**
+
+```
+Based on the provided documents, there is no mention of the "best" place to study at 9pm. However, regarding the library areas: the third floor is silent and enforced, the second floor is quiet in theory, and the basement has outlets at every seat (study_library_hours.txt).
+```
 
 **Did it help?**
+
+No. The numbers didn't move in a way I can credit to the change, and
+retrieval got noisier.
+
+- **The one number that moved isn't hybrid's doing.** The revised criterion 2
+  went from 5/4/4 on the retest to 5/5/5. But those retest failures were the
+  model writing "2 am" instead of "2am". In the after runs it happened to
+  write "2am" every time. Retrieval has nothing to do with how the model
+  spaces a time, so this is the same run-to-run variation, not an
+  improvement.
+- **It did the opposite of what I wanted for library hours.** I expected
+  keywords to lift `study_library_hours.txt`. Instead it fell from rank 1 to
+  rank 5, and a third housing file came in. The dedicated document only says
+  "Open until 2am", while the housing posts say "the library is open until
+  2am", so they match more of the question's words. The citations happened to
+  come out more accurate in all three after runs: the housing files were
+  credited only for 2am, and 10pm only for `study_library_hours.txt`. But
+  with more housing files in the context, I can't say that's because of the
+  change rather than variation between runs.
+- **It made "study at 9pm" worse, and my scorer can't see it.** Before, every
+  answer said the library is open until 2am, which is what answers "at 9pm".
+  After, `study_group_rooms.txt` and `transit_walking.txt` were replaced by
+  `money_textbooks.txt`, `orientation_what_matters.txt` and a café review,
+  which BM25 matched on common words like "place" and "study". Runs 1 and 3
+  now open with "there is no mention of the 'best' place to study at 9pm" and
+  leave out the hours. They still pass, because my `expects` is just
+  `library`.
+- **Irrelevant chunks got into every question.** For example,
+  `dining_halden_hall_followup.txt` for the drop deadline and
+  `admin_wifi_and_accounts.txt` for the shuttle.
+- **The gate now reads a different number for out-of-scope questions.**
+  When fusion pushes the closest-in-meaning chunk out of the top 5, the best
+  distance the gate sees goes up: Mongolia went from 0.825 to 0.869, and
+  ibuprofen from 0.844 to 0.860. That happens to make refusals safer here,
+  but it also means hybrid search could raise an in-corpus question's best
+  distance over the cutoff. It didn't for my five, whose closest chunk stayed
+  in the top 5.
+
+**Why it didn't help:** BM25 rewards exact words, and my questions are made of
+common ones: "hours", "library", "study", "place", "work". In a corpus of 88
+short student posts, those words appear everywhere. Hybrid search pays off
+when the question has a rare exact term, like a course code or a building
+name. None of my five do. My diagnosis pointed at generation and at my own
+scorer more than at retrieval, and this result confirms it.
 
 <!-- Say plainly whether it did, and how you know. If it made things worse,
      say that — a change that backfired, honestly reported, earns full credit

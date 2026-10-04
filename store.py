@@ -18,6 +18,7 @@ rest of the project if they were wrong:
 """
 
 import os
+import re
 import shutil
 from dataclasses import dataclass
 
@@ -28,6 +29,7 @@ from dataclasses import dataclass
 os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
 
 import chromadb  # noqa: E402
+from rank_bm25 import BM25Okapi  # noqa: E402
 
 import config
 from chunker import Chunk
@@ -199,11 +201,51 @@ def search(
             f"No index called '{name}'. Run `python app.py index` first."
         ) from exc
 
+    if config.HYBRID:
+        return _hybrid_search(question, top_k, collection)
+
     raw = collection.query(
         query_embeddings=embed([question]),
         n_results=min(top_k, collection.count()),
     )
+    return _to_results(raw)
 
+
+def _tokenize(text: str) -> list[str]:
+    return re.findall(r"[a-z0-9]+", text.lower())
+
+
+def _hybrid_search(question: str, top_k: int, collection) -> list[Result]:
+    """
+    Meaning and keywords, fused by reciprocal rank.
+
+    Every chunk is ranked twice — by cosine distance, and by BM25 keyword
+    score — and each gets 1/(RRF_K + rank) from both lists. The top_k by
+    combined score come back. Each Result keeps its real cosine distance, so
+    the relevance gate still compares the same number against the same cutoff.
+    """
+    # The corpus is a few hundred chunks, so ranking all of them is cheap and
+    # means a chunk BM25 loves can't be missing a distance.
+    raw = collection.query(
+        query_embeddings=embed([question]), n_results=collection.count()
+    )
+    candidates = _to_results(raw)  # already nearest-first
+
+    bm25 = BM25Okapi([_tokenize(r.text) for r in candidates])
+    keyword_scores = bm25.get_scores(_tokenize(question))
+    keyword_order = sorted(
+        range(len(candidates)), key=lambda i: keyword_scores[i], reverse=True
+    )
+
+    fused = [1.0 / (config.RRF_K + rank) for rank in range(1, len(candidates) + 1)]
+    for rank, i in enumerate(keyword_order, start=1):
+        fused[i] += 1.0 / (config.RRF_K + rank)
+
+    best = sorted(range(len(candidates)), key=lambda i: fused[i], reverse=True)
+    return [candidates[i] for i in best[:top_k]]
+
+
+def _to_results(raw) -> list[Result]:
     results: list[Result] = []
     for text, meta, distance in zip(
         raw["documents"][0], raw["metadatas"][0], raw["distances"][0]
