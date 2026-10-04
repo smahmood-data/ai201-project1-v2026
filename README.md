@@ -336,23 +336,53 @@ retrieval and generation had almost nothing to get wrong. My out-of-scope
 questions are just as easy in the other direction: the closest one scored
 0.825 against a 0.7 cutoff, so the gate was never tested near its edge.
 
-**The weak spots are still visible in the output, even though nothing failed:**
+**Weak spots that didn't fail anything, but show up in the output:**
 
-- **Generation drops half of two-part facts.** Every drop-deadline answer says
-  "the end of week six" and none mention that a drop after week two shows as
-  a W. My `expects` of `week six` can't catch that.
-- **Generation over-cites.** Library-hours runs 1 and 2 cite two
-  `housing_*_noise.txt` files for "2am during term and 10pm during reading
-  week"; those files say 2am but never mention 10pm.
-- **Retrieval is closer to the gate than it looks.** "Where is the best place
-  to study at 9pm?" scored 0.6016, the only in-corpus question within 0.1 of
-  the 0.7 cutoff.
+- **Over-citation — retrieval, then generation.** Seven `housing_*_noise.txt`
+  posts repeat the same sentence: "the library is open until 2am during
+  term". For "What are the library hours", retrieval returns two of them
+  alongside `study_library_hours.txt`. The model then attributes the
+  *whole* answer — 2am during term *and* 10pm during reading week — to all
+  three files. The housing files never mention 10pm. Retest run 3 states it
+  outright: "This same information is also noted in
+  housing_morrow_house_noise.txt and housing_calder_annexe_noise.txt", which
+  is false.
+- **Dropped half of a two-part fact — generation.** The retrieved chunk
+  `admin_add_drop_deadline.txt#0` contains both "through the end of week six"
+  and "a drop after week two shows as a W". All six drop-deadline answers
+  across both evals give only the first part. The model answers the narrow
+  question ("when is the deadline") and leaves out the consequence a student
+  would most need to know.
+- **Weak match for the vaguest question — retrieval.** "Where is the best
+  place to study at 9pm?" scored 0.6016, the only in-corpus question within
+  0.1 of the cutoff. No document talks about the "best place" to study. The
+  closest chunk is `study_library_hours.txt`, which matches on "study" and
+  library hours rather than on the question's actual meaning.
 
-**Which I'd tighten:** criterion 3. Keep the 4 of 5 target, but replace the
-out-of-scope questions with near-misses that share vocabulary with my corpus —
-e.g. "What are the hours of the downtown public library?" or "When is the drop
-deadline at a different university?" That would show whether 0.7 really
-separates the two groups, which the current questions can't.
+**The pattern:** every weak spot is something my evaluation doesn't look at.
+`scorer.py::judge` checks one fact per answer, and criterion 5 accepts any
+answer where the right file is cited somewhere. So the second half of a fact,
+and extra citations that are wrong, both pass unnoticed. The one thing that
+did nearly fail, "2 am" versus "2am", is the same problem the other way round:
+a single exact string decides the result. My system cleared every target
+mostly because my checks were narrow and my questions were easy, not because
+the system has no problems.
+
+**Which I'd tighten: criterion 3, to near-miss questions.** The current
+out-of-scope questions (Mongolia, diesel engines, Rust) are so far from my
+corpus that the closest scored 0.825, and the gate never had to make a hard
+call. I'd keep the 4 of 5 target and replace the questions with five that
+share vocabulary with my corpus but aren't answered by it:
+
+> When the relevance gate gets a question that uses campus vocabulary but
+> isn't answered by my documents, it refuses in at least 4 of 5 tries, at
+> the same 0.7 cutoff — e.g. "What are the hours of the downtown public
+> library?", "When is the drop deadline at a different university?", "How
+> much does the city bus cost?"
+
+That tests whether 0.7 really separates the two groups. The in-corpus side
+already goes up to 0.6016, so I'd expect at least one of these to get
+through. I'd rather find that out than keep a target I can't miss.
 
 ## The Improvement
 
