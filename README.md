@@ -203,15 +203,76 @@ a network error, so I did not treat that as a successful answer test.
 
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---|---|---|---|---|
-| 1. Retrieved chunk contains the answer | 4 of 5 |  |  |  |  |
-| 2. Every answer names a source | 5 of 5 |  |  |  |  |
-| 3. Gate stops out-of-corpus questions | 4 of 5 |  |  |  |  |
-| 4. | | | | | |
-| 5. | | | | | |
+| 1. Retrieved chunk contains the answer | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 2. Every answer names a source | 5 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 2 (revised). Answer contains the expected fact | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 3. Gate stops out-of-corpus questions | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 4. Sampled chunks are complete thoughts | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 5. Answer cites the document holding the fact | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
 
-<!-- Underneath, paste the REAL output for each criterion from one of your
-     runs — the actual text your system produced, not a description of it.
-     Name the file and function that produced it. -->
+Source: `results/run_2026-09-30_1725_before.md`, produced by `run_eval.py::main`
+(retrieval by `store.py::search`, answers by `generate.py::answer_from_chunks`,
+pass/fail by `scorer.py::judge`). Criteria 1, 3 and 4 are deterministic —
+retrieval, the gate, and the chunker give the same result every run — so one
+number goes in all three columns. Criterion 4 uses the five sample chunks
+above from `chunker.py::split_documents`, which hasn't changed since they were
+taken.
+
+**Criteria 1, 2 and 5** — "How many hours can i work in the library or dining?", run 1:
+
+```
+Best distance: 0.2292 (passed the gate)
+Sources retrieved: housing_aldridge_hall_noise.txt, housing_morrow_house_noise.txt, money_jobs.txt, study_group_rooms.txt, study_library_hours.txt
+
+The maximum work limit is 20 hours a week during the term (money_jobs.txt).
+```
+
+The answer is in `money_jobs.txt` ("Maximum is 20 hours a week during term"),
+which was retrieved (criterion 1), and the answer names it (criteria 2 and 5).
+
+**Criterion 3** — `run_eval.py::check_out_of_scope`, cutoff 0.7, refused 5 of 5:
+
+```
+| What is the capital of Mongolia? | 0.825 | refused |
+| How do I change the oil in a diesel engine? | 0.934 | refused |
+| Who won the 1994 World Cup? | 0.886 | refused |
+| What is the recommended dosage of ibuprofen for a headache? | 0.844 | refused |
+| How do I write a for loop in Rust? | 0.896 | refused |
+```
+
+**Criterion 4** — sample chunk 1 from `chunker.py::split_documents`, source `admin_add_drop_deadline.txt`:
+
+```
+On the add/drop deadline
+
+You can add a course through the end of the second week. Dropping is a longer window — through the end of week six — but a drop after week two shows as a W on your transcript. Nothing anywhere on the registrar's site says this plainly, and students find out from each other.
+```
+
+### Retest
+
+I ran the same eval again with nothing changed (`python run_eval.py --label
+retest`), mainly to measure the revised criterion 2 over a fresh set of
+answers.
+
+| Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
+|---|---|---|---|---|---|
+| 1. Retrieved chunk contains the answer | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 2. Every answer names a source | 5 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 2 (revised). Answer contains the expected fact | 4 of 5 | 5/5 | 4/5 | 4/5 | MET |
+| 3. Gate stops out-of-corpus questions | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 4. Sampled chunks are complete thoughts | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 5. Answer cites the document holding the fact | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+
+Source: `results/run_2026-10-03_2248_retest.md`, produced by `run_eval.py::main`.
+
+**Criterion 2 (revised)** — "What are the library hours", run 2, scored **fail** by `scorer.py::judge`:
+
+```
+Best distance: 0.3848 (passed the gate)
+Sources retrieved: admin_library_holds.txt, housing_calder_annexe_noise.txt, housing_morrow_house_noise.txt, study_group_rooms.txt, study_library_hours.txt
+
+The library is open until 2 am during term and until 10 pm during reading week (study_library_hours.txt, housing_morrow_house_noise.txt, and housing_calder_annexe_noise.txt).
+```
 
 ## Verdicts
 
@@ -226,11 +287,12 @@ a network error, so I did not treat that as a successful answer test.
 
 | # | Criterion | Verdict | How I decided |
 |---|---|---|---|
-| 1 |  |  |  |
-| 2 |  |  |  |
-| 3 |  |  |  |
-| 4 |  |  |  |
-| 5 |  |  |  |
+| 1 | Retrieved chunk contains the answer | MET | For all five questions the document holding the answer was retrieved (`admin_add_drop_deadline.txt`, `study_library_hours.txt` twice, `transit_shuttle.txt`, `money_jobs.txt`). The run log lists sources, not chunk text; these posts are short and the fact sits in the opening paragraph, so the retrieved chunk contains it. |
+| 2 | Every answer names a source | MET | All 15 answers name at least one `.txt` file. Not close. |
+| 2 (revised) | Answer contains the expected fact | MET | Before: `scorer.py::judge` passed all five questions in all three runs. Retest: 5/5, 4/5, 4/5 — library hours failed runs 2 and 3. That's still 4 of 5 questions passing in every run, so it holds, but with zero margin. And both failures are the scorer's fault, not the system's (see Diagnoses), so I don't count them as evidence the system got worse. Revised in `criteria.md` because the original measured whether a citation existed, not whether the answer was right — see the reason there. |
+| 3 | Gate stops out-of-corpus questions | MET | All five refused; the closest was 0.825 against a 0.7 cutoff. The tight spot is on the other side: the in-corpus "study at 9pm" question scored 0.6016, so the cutoff can't drop much below 0.6 without refusing it. |
+| 4 | Sampled chunks are complete thoughts | MET | All five sample chunks start at a heading or paragraph start and end on a full sentence; none is cut mid-sentence. Splitting at blank lines is what guarantees this for these short posts. |
+| 5 | Answer cites the document holding the fact | MET | Every answer cites the document containing the fact. Some also cite extra documents: drop-deadline answers add `admin_withdrawal_deadline.txt` (which does say "Dropping ends at week six"), and library-hours runs 1–2 add two `housing_*_noise.txt` files that support 2am but not 10pm. I counted "the right document is among those cited" — the closest call, because the criterion doesn't say how to treat extra citations. |
 
 ## Diagnoses
 
@@ -251,6 +313,46 @@ a network error, so I did not treat that as a successful answer test.
      low, and which one you'd tighten and to what.
 
      Milestone 3. -->
+
+No criterion was missed in either eval. The before eval was 5/5 everywhere.
+The retest came within one question of a miss on the revised criterion 2.
+
+**The near-miss: library hours, retest runs 2 and 3. Stage: evaluation (my
+scorer), not the pipeline.** Both answers are correct and cite
+`study_library_hours.txt`. They wrote "2 am" with a space, and
+`scorer.py::judge` checks for the exact substring `2am` (case-insensitive
+only), so it scored a right answer as wrong. Run 1 of the same question wrote
+"2am" and passed. The model's spacing varies from run to run, and my scorer
+can't tell the difference between a wrong answer and a differently formatted
+one. The fix belongs in the scorer: normalise times ("2 am", "2 a.m.",
+"2:00am" → "2am") before matching. Changing the `expects` wouldn't fix it,
+because the next run could format it a third way.
+
+**Apart from that, the targets were set low, and the pattern is the
+questions, not the numbers.** Each of my five questions maps to one short document that states
+the fact in its opening lines (`admin_add_drop_deadline.txt`,
+`study_library_hours.txt`, `transit_shuttle.txt`, `money_jobs.txt`), so
+retrieval and generation had almost nothing to get wrong. My out-of-scope
+questions are just as easy in the other direction: the closest one scored
+0.825 against a 0.7 cutoff, so the gate was never tested near its edge.
+
+**The weak spots are still visible in the output, even though nothing failed:**
+
+- **Generation drops half of two-part facts.** Every drop-deadline answer says
+  "the end of week six" and none mention that a drop after week two shows as
+  a W. My `expects` of `week six` can't catch that.
+- **Generation over-cites.** Library-hours runs 1 and 2 cite two
+  `housing_*_noise.txt` files for "2am during term and 10pm during reading
+  week"; those files say 2am but never mention 10pm.
+- **Retrieval is closer to the gate than it looks.** "Where is the best place
+  to study at 9pm?" scored 0.6016, the only in-corpus question within 0.1 of
+  the 0.7 cutoff.
+
+**Which I'd tighten:** criterion 3. Keep the 4 of 5 target, but replace the
+out-of-scope questions with near-misses that share vocabulary with my corpus —
+e.g. "What are the hours of the downtown public library?" or "When is the drop
+deadline at a different university?" That would show whether 0.7 really
+separates the two groups, which the current questions can't.
 
 ## The Improvement
 

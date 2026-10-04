@@ -34,6 +34,20 @@ Every answer the system produces names at least one source document.
 **Why this target:**
 I chose all five because the answer prompt has access to the retrieved chunks and each answer should be traceable to one of the corpus documents. If an answer has no source, it cannot be checked for support.
 
+> **Revised in unit 2:** For at least 4 of 5 test questions, the answer
+> contains the expected fact from `questions.py` (`scorer.py::judge` passes)
+> in every one of the three runs.
+>
+> **Why revised:** This criterion measured the wrong thing. Any citation
+> passes it — an answer could name a `.txt` file and still state the wrong
+> deadline — so it came out 15/15 without telling me whether a single answer
+> was right. Criterion 5 already checks citations, and more strictly: an
+> answer that cites the right document necessarily names a source, so
+> criterion 2 added nothing that 5 doesn't cover. Meanwhile none of my five
+> criteria checked whether the answer itself was correct, which is the main
+> thing the system is for. The revision uses that slot to measure correctness
+> with a check that comes out the same way every time I apply it.
+
 ---
 
 ## 3. The relevance gate stops out-of-corpus questions
